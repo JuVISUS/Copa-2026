@@ -6,11 +6,11 @@ plugins {
 }
 
 android {
-    namespace = "com.copa.alerta2026"
+    namespace = "com.juvisus.copa2026app"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.copa.alerta2026"
+        applicationId = "com.juvisus.copa2026app"
         minSdk = 26
         targetSdk = 34
         versionCode = 1

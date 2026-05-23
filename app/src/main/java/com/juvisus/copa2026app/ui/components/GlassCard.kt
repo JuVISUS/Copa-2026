@@ -1,4 +1,4 @@
-package com.copa.alerta2026.ui.components
+package com.juvisus.copa2026app.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -11,8 +11,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.copa.alerta2026.ui.theme.GlassBg
-import com.copa.alerta2026.ui.theme.GlassBorder
+import com.juvisus.copa2026app.ui.theme.GlassBg
+import com.juvisus.copa2026app.ui.theme.GlassBorder
 
 @Composable
 fun GlassCard(

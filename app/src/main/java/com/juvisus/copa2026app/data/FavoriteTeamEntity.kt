@@ -1,4 +1,4 @@
-package com.copa.alerta2026.data
+package com.juvisus.copa2026app.data
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey

@@ -1,4 +1,4 @@
-package com.copa.alerta2026.ui.screens
+package com.juvisus.copa2026app.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -22,12 +22,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.copa.alerta2026.data.FavoriteTeamEntity
-import com.copa.alerta2026.ui.FootballViewModel
-import com.copa.alerta2026.ui.NotificationAlert
-import com.copa.alerta2026.ui.components.FlagHelper
-import com.copa.alerta2026.ui.components.GlassCard
-import com.copa.alerta2026.ui.theme.*
+import com.juvisus.copa2026app.data.FavoriteTeamEntity
+import com.juvisus.copa2026app.ui.FootballViewModel
+import com.juvisus.copa2026app.ui.NotificationAlert
+import com.juvisus.copa2026app.ui.components.FlagHelper
+import com.juvisus.copa2026app.ui.components.GlassCard
+import com.juvisus.copa2026app.ui.theme.*
 
 @Composable
 fun FavoritesScreen(viewModel: FootballViewModel) {

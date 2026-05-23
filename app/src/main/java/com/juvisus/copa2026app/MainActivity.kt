@@ -1,4 +1,4 @@
-package com.copa.alerta2026
+package com.juvisus.copa2026app
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -18,15 +18,15 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.room.Room
-import com.copa.alerta2026.data.AppDatabase
-import com.copa.alerta2026.data.FootballRepository
-import com.copa.alerta2026.ui.FootballViewModel
-import com.copa.alerta2026.ui.screens.ChatScreen
-import com.copa.alerta2026.ui.screens.DashboardScreen
-import com.copa.alerta2026.ui.screens.FavoritesScreen
-import com.copa.alerta2026.ui.theme.CopaAlerta2026Theme
-import com.copa.alerta2026.ui.theme.MidnightBg
-import com.copa.alerta2026.ui.theme.YellowGold
+import com.juvisus.copa2026app.data.AppDatabase
+import com.juvisus.copa2026app.data.FootballRepository
+import com.juvisus.copa2026app.ui.FootballViewModel
+import com.juvisus.copa2026app.ui.screens.ChatScreen
+import com.juvisus.copa2026app.ui.screens.DashboardScreen
+import com.juvisus.copa2026app.ui.screens.FavoritesScreen
+import com.juvisus.copa2026app.ui.theme.CopaAlerta2026Theme
+import com.juvisus.copa2026app.ui.theme.MidnightBg
+import com.juvisus.copa2026app.ui.theme.YellowGold
 
 class MainActivity : ComponentActivity() {
 

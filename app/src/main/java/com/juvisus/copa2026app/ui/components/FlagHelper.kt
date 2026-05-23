@@ -1,4 +1,4 @@
-package com.copa.alerta2026.ui.components
+package com.juvisus.copa2026app.ui.components
 
 object FlagHelper {
     fun getFlagEmoji(teamCode: String): String {

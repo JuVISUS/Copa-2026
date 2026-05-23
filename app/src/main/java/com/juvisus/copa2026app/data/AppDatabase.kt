@@ -1,4 +1,4 @@
-package com.copa.alerta2026.data
+package com.juvisus.copa2026app.data
 
 import androidx.room.Database
 import androidx.room.RoomDatabase

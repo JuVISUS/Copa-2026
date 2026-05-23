@@ -1,14 +1,14 @@
-package com.copa.alerta2026.ui
+package com.juvisus.copa2026app.ui
 
 import android.app.Application
 import android.widget.Toast
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.copa.alerta2026.BuildConfig
-import com.copa.alerta2026.data.ChatMessageEntity
-import com.copa.alerta2026.data.FavoriteTeamEntity
-import com.copa.alerta2026.data.FootballRepository
-import com.copa.alerta2026.data.MatchEntity
+import com.juvisus.copa2026app.BuildConfig
+import com.juvisus.copa2026app.data.ChatMessageEntity
+import com.juvisus.copa2026app.data.FavoriteTeamEntity
+import com.juvisus.copa2026app.data.FootballRepository
+import com.juvisus.copa2026app.data.MatchEntity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch

@@ -1,4 +1,4 @@
-package com.copa.alerta2026.ui.screens
+package com.juvisus.copa2026app.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -23,10 +23,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.copa.alerta2026.data.ChatMessageEntity
-import com.copa.alerta2026.ui.FootballViewModel
-import com.copa.alerta2026.ui.components.GlassCard
-import com.copa.alerta2026.ui.theme.*
+import com.juvisus.copa2026app.data.ChatMessageEntity
+import com.juvisus.copa2026app.ui.FootballViewModel
+import com.juvisus.copa2026app.ui.components.GlassCard
+import com.juvisus.copa2026app.ui.theme.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

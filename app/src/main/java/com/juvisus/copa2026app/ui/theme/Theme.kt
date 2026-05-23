@@ -1,4 +1,4 @@
-package com.copa.alerta2026.ui.theme
+package com.juvisus.copa2026app.ui.theme
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme

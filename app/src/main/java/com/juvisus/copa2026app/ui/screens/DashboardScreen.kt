@@ -1,4 +1,4 @@
-package com.copa.alerta2026.ui.screens
+package com.juvisus.copa2026app.ui.screens
 
 import androidx.compose.animation.*
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -27,11 +27,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.copa.alerta2026.data.MatchEntity
-import com.copa.alerta2026.ui.FootballViewModel
-import com.copa.alerta2026.ui.components.FlagHelper
-import com.copa.alerta2026.ui.components.GlassCard
-import com.copa.alerta2026.ui.theme.*
+import com.juvisus.copa2026app.data.MatchEntity
+import com.juvisus.copa2026app.ui.FootballViewModel
+import com.juvisus.copa2026app.ui.components.FlagHelper
+import com.juvisus.copa2026app.ui.components.GlassCard
+import com.juvisus.copa2026app.ui.theme.*
 import java.text.SimpleDateFormat
 import java.util.*
 
