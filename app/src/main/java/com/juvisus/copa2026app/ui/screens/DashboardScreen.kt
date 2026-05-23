@@ -40,33 +40,52 @@ import java.util.*
 fun DashboardScreen(viewModel: FootballViewModel) {
     val matches by viewModel.matches.collectAsState()
     val favoriteTeams by viewModel.favoriteTeams.collectAsState()
+    val isSyncing by viewModel.isSyncing.collectAsState()
 
     var selectedFilter by remember { mutableStateOf("Todos") } // "Todos", "Favoritos", "Fase de Grupos", "Mata-Mata"
 
     val favoriteCodes = remember(favoriteTeams) { favoriteTeams.map { it.code } }
 
-    val filteredMatches = remember(matches, selectedFilter, favoriteCodes) {
+    val currentEpoch = remember { System.currentTimeMillis() / 1000L }
+    val oneWeek = 7 * 86400L
+
+    // BLOCK 1: Brazil Highlight Card (Próximo ou Último oficial do Brasil)
+    val brazilHighlight = remember(matches) {
+        val brMatches = matches.filter { it.teamHomeCode == "BRA" || it.teamAwayCode == "BRA" }
+            .sortedBy { it.dateTimeEpoch }
+        val nextMatch = brMatches.firstOrNull { it.dateTimeEpoch >= currentEpoch && !it.isCompleted }
+        nextMatch ?: brMatches.lastOrNull()
+    }
+
+    val filteredMatches = remember(matches, selectedFilter, favoriteCodes, brazilHighlight) {
         matches.filter { match ->
+            // Exclude Brazil Highlight from secondary blocks to avoid repeating
+            if (brazilHighlight != null && match.id == brazilHighlight.id) return@filter false
+
             when (selectedFilter) {
                 "Favoritos" -> {
                     favoriteCodes.contains(match.teamHomeCode) || favoriteCodes.contains(match.teamAwayCode) || match.teamHomeCode == "BRA"
                 }
-                "Fase de Grupos" -> match.stage == "Fase de Grupos"
-                "Mata-Mata" -> match.stage != "Fase de Grupos"
+                "Fase de Grupos" -> match.stage.contains("Grupo") || match.stage.contains("Grupos")
+                "Mata-Mata" -> !match.stage.contains("Grupo") && !match.stage.contains("Grupos") && !match.stage.contains("Amistoso")
                 else -> true
             }
         }
     }
 
-    val currentEpoch = System.currentTimeMillis() / 1000L
-    val oneWeek = 7 * 86400L
-
-    val matchesThisWeek = remember(filteredMatches, currentEpoch) {
-        filteredMatches.filter { it.dateTimeEpoch < currentEpoch + oneWeek }
+    // BLOCK 2: Semana Atual (excluindo highlight)
+    val matchesThisWeek = remember(filteredMatches) {
+        filteredMatches.filter { it.dateTimeEpoch >= currentEpoch && it.dateTimeEpoch < currentEpoch + oneWeek && !it.isCompleted }
     }
 
-    val matchesLater = remember(filteredMatches, currentEpoch) {
-        filteredMatches.filter { it.dateTimeEpoch >= currentEpoch + oneWeek }
+    // BLOCK 3: Próxima Semana (excluindo highlight)
+    val matchesLater = remember(filteredMatches) {
+        filteredMatches.filter { it.dateTimeEpoch >= currentEpoch + oneWeek && it.dateTimeEpoch < currentEpoch + (2 * oneWeek) && !it.isCompleted }
+    }
+
+    // BLOCK 4: Resultados Recentes do campeonato / Copa (completados ou passados)
+    val matchesCompleted = remember(filteredMatches) {
+        filteredMatches.filter { it.isCompleted || it.dateTimeEpoch < currentEpoch }.sortedByDescending { it.dateTimeEpoch }
     }
 
     Column(
@@ -83,7 +102,7 @@ fun DashboardScreen(viewModel: FootballViewModel) {
                         colors = listOf(YellowGold.copy(alpha = 0.12f), Color.Transparent)
                     )
                 )
-                .padding(horizontal = 20.dp, vertical = 24.dp)
+                .padding(horizontal = 20.dp, vertical = 20.dp)
         ) {
             Column {
                 Row(
@@ -110,17 +129,30 @@ fun DashboardScreen(viewModel: FootballViewModel) {
                     Box(
                         modifier = Modifier
                             .clip(CircleShape)
-                            .background(GreenAccent.copy(alpha = 0.15f))
+                            .background((if (isSyncing) YellowGold else GreenAccent).copy(alpha = 0.15f))
                             .padding(horizontal = 8.dp, vertical = 4.dp)
+                            .clickable { viewModel.syncRealMatchesFromInternet() }
                     ) {
                         Text(
-                            text = "LIVE",
+                            text = if (isSyncing) "SYNCING" else "LIVE",
                             fontSize = 9.sp,
                             fontWeight = FontWeight.Bold,
-                            color = GreenAccent,
+                            color = if (isSyncing) YellowGold else GreenAccent,
                             letterSpacing = 0.5.sp
                         )
                     }
+                }
+
+                // Small loading indicators for syncs
+                if (isSyncing) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    LinearProgressIndicator(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(2.dp),
+                        color = YellowGold,
+                        trackColor = Color.White.copy(alpha = 0.1f)
+                    )
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -155,74 +187,87 @@ fun DashboardScreen(viewModel: FootballViewModel) {
             }
         }
 
-        if (filteredMatches.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text(
-                        text = "🔕",
-                        fontSize = 32.sp
-                    )
-                    Text(
-                        text = "Nenhuma partida agendada com filtros atuais.",
-                        fontSize = 13.sp,
-                        color = TextMuted,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(horizontal = 40.dp)
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f),
+            contentPadding = PaddingValues(bottom = 80.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // BLOCK 1 item: Brazil Highlight Card (Always present at the very top of lists)
+            if (brazilHighlight != null) {
+                item {
+                    BrazilHighlightCard(
+                        match = brazilHighlight,
+                        favoriteCodes = favoriteCodes,
+                        onToggleFavorite = { code, name ->
+                            if (favoriteCodes.contains(code)) {
+                                viewModel.removeFavorite(code, name)
+                            } else {
+                                viewModel.addFavorite(code, name)
+                            }
+                        }
                     )
                 }
             }
-        } else {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f),
-                contentPadding = PaddingValues(bottom = 80.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                if (matchesThisWeek.isNotEmpty()) {
-                    stickyHeader {
-                        SectionHeader(title = "Desta Semana")
-                    }
-                    items(matchesThisWeek, key = { it.id }) { match ->
-                        MatchCardItem(
-                            match = match,
-                            favoriteCodes = favoriteCodes,
-                            onToggleFavorite = { code, name ->
-                                if (favoriteCodes.contains(code)) {
-                                    viewModel.removeFavorite(code, name)
-                                } else {
-                                    viewModel.addFavorite(code, name)
-                                }
-                            }
-                        )
-                    }
-                }
 
-                if (matchesLater.isNotEmpty()) {
-                    stickyHeader {
-                        SectionHeader(title = "Semana Seguinte")
-                    }
-                    items(matchesLater, key = { it.id }) { match ->
-                        MatchCardItem(
-                            match = match,
-                            favoriteCodes = favoriteCodes,
-                            onToggleFavorite = { code, name ->
-                                if (favoriteCodes.contains(code)) {
-                                    viewModel.removeFavorite(code, name)
-                                } else {
-                                    viewModel.addFavorite(code, name)
-                                }
+            // BLOCK 2: Semana Atual
+            if (matchesThisWeek.isNotEmpty()) {
+                stickyHeader {
+                    SectionHeader(title = "Segundo Bloco: Jogos de Hoje/Semana")
+                }
+                items(matchesThisWeek, key = { it.id }) { match ->
+                    MatchCardItem(
+                        match = match,
+                        favoriteCodes = favoriteCodes,
+                        onToggleFavorite = { code, name ->
+                            if (favoriteCodes.contains(code)) {
+                                viewModel.removeFavorite(code, name)
+                            } else {
+                                viewModel.addFavorite(code, name)
                             }
-                        )
-                    }
+                        }
+                    )
+                }
+            }
+
+            // BLOCK 3: Semana Seguinte
+            if (matchesLater.isNotEmpty()) {
+                stickyHeader {
+                    SectionHeader(title = "Terceiro Bloco: Próxima Semana")
+                }
+                items(matchesLater, key = { it.id }) { match ->
+                    MatchCardItem(
+                        match = match,
+                        favoriteCodes = favoriteCodes,
+                        onToggleFavorite = { code, name ->
+                            if (favoriteCodes.contains(code)) {
+                                viewModel.removeFavorite(code, name)
+                            } else {
+                                viewModel.addFavorite(code, name)
+                            }
+                        }
+                    )
+                }
+            }
+
+            // BLOCK 4: Resultados Recentes (Copa e amigáveis concluídos)
+            if (matchesCompleted.isNotEmpty()) {
+                stickyHeader {
+                    SectionHeader(title = "Quarto Bloco: Resultados Recentes")
+                }
+                items(matchesCompleted, key = { it.id }) { match ->
+                    MatchCardItem(
+                        match = match,
+                        favoriteCodes = favoriteCodes,
+                        onToggleFavorite = { code, name ->
+                            if (favoriteCodes.contains(code)) {
+                                viewModel.removeFavorite(code, name)
+                            } else {
+                                viewModel.addFavorite(code, name)
+                            }
+                        }
+                    )
                 }
             }
         }
@@ -469,6 +514,252 @@ fun MatchCardItem(
                     textAlign = TextAlign.Center,
                     overflow = TextOverflow.Ellipsis
                 )
+            }
+        }
+    }
+}
+
+@Composable
+fun BrazilHighlightCard(
+    match: MatchEntity,
+    favoriteCodes: List<String>,
+    onToggleFavorite: (String, String) -> Unit
+) {
+    val isUpcoming = match.dateTimeEpoch >= System.currentTimeMillis() / 1000L && !match.isCompleted
+
+    val formatDayOfWeek = remember(match.dateTimeEpoch) {
+        val sdf = SimpleDateFormat("EEEE", Locale("pt", "BR"))
+        sdf.format(Date(match.dateTimeEpoch * 1000L))
+            .replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale("pt", "BR")) else it.toString() }
+    }
+
+    val formatDayAndMonth = remember(match.dateTimeEpoch) {
+        val sdf = SimpleDateFormat("d 'de' MMMM", Locale("pt", "BR"))
+        sdf.format(Date(match.dateTimeEpoch * 1000L))
+    }
+
+    val formatedTime = remember(match.dateTimeEpoch) {
+        val sdf = SimpleDateFormat("HH:mm", Locale("pt", "BR"))
+        sdf.format(Date(match.dateTimeEpoch * 1000L))
+    }
+
+    val isHomeFav = favoriteCodes.contains(match.teamHomeCode)
+    val isAwayFav = favoriteCodes.contains(match.teamAwayCode)
+
+    GlassCard(
+        cornerRadius = 24.dp,
+        borderWidth = 2.dp,
+        borderColor = YellowGold.copy(alpha = 0.6f),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            GreenAccent.copy(alpha = 0.12f),
+                            YellowGold.copy(alpha = 0.05f),
+                            Color.Transparent
+                        )
+                    )
+                )
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // Header: Card Title badge
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(if (isUpcoming) YellowGold else GreenAccent)
+                        .padding(horizontal = 10.dp, vertical = 5.dp)
+                ) {
+                    Text(
+                        text = if (isUpcoming) "PRÓXIMO JOGO OFICIAL DO BRASIL 🇧🇷" else "ÚLTIMO JOGO OFICIAL DO BRASIL 🇧🇷",
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Color.Black,
+                        letterSpacing = 0.5.sp
+                    )
+                }
+
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Color(0x33000000))
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                ) {
+                    Text(
+                        text = match.stage.uppercase(),
+                        fontSize = 8.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        letterSpacing = 0.5.sp
+                    )
+                }
+            }
+
+            // Central: Competitors
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Home
+                Column(
+                    modifier = Modifier.weight(1f),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = FlagHelper.getFlagEmoji(match.teamHomeCode),
+                        fontSize = 44.sp
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = match.teamHome,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Color.White,
+                        textAlign = TextAlign.Center,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+
+                // Verses / Scores
+                Column(
+                    modifier = Modifier.width(110.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    if (match.isCompleted) {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "${match.scoreHome ?: 0}",
+                                fontSize = 34.sp,
+                                fontWeight = FontWeight.Black,
+                                color = Color.White
+                            )
+                            Text(
+                                text = "x",
+                                fontSize = 16.sp,
+                                color = YellowGold,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "${match.scoreAway ?: 0}",
+                                fontSize = 34.sp,
+                                fontWeight = FontWeight.Black,
+                                color = Color.White
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = "FIM DE JOGO",
+                            fontSize = 8.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = GreenAccent,
+                            letterSpacing = 1.sp
+                        )
+                    } else {
+                        Text(
+                            text = formatedTime,
+                            fontSize = 28.sp,
+                            fontWeight = FontWeight.Black,
+                            color = YellowGold,
+                            textAlign = TextAlign.Center
+                        )
+                        Text(
+                            text = formatDayOfWeek,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White,
+                            textAlign = TextAlign.Center
+                        )
+                        Text(
+                            text = formatDayAndMonth,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Color.White.copy(alpha = 0.7f),
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+
+                // Away
+                Column(
+                    modifier = Modifier.weight(1f),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = FlagHelper.getFlagEmoji(match.teamAwayCode),
+                        fontSize = 44.sp
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = match.teamAway,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Color.White,
+                        textAlign = TextAlign.Center,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+
+            // Custom Divider
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(1.dp)
+                    .background(Color.White.copy(alpha = 0.1f))
+            )
+
+            // Venue Details & Transmission info in Highlight style
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Row(
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "🏟️ ${match.stadium} • ${match.city}, ${match.country}",
+                        fontSize = 10.sp,
+                        color = Color.White.copy(alpha = 0.85f),
+                        fontWeight = FontWeight.Medium,
+                        textAlign = TextAlign.Center,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                
+                Row(
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "📺 Transmissão: ${match.broadcast}",
+                        fontSize = 10.sp,
+                        color = GreenAccent,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
             }
         }
     }

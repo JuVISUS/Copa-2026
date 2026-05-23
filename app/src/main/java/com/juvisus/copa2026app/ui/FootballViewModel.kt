@@ -14,7 +14,7 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.*
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -63,6 +63,20 @@ class FootballViewModel(
     private val _scheduledAlerts = MutableStateFlow<List<NotificationAlert>>(emptyList())
     val scheduledAlerts: StateFlow<List<NotificationAlert>> = _scheduledAlerts.asStateFlow()
 
+    private val _isSyncing = MutableStateFlow(false)
+    val isSyncing: StateFlow<Boolean> = _isSyncing.asStateFlow()
+
+    private fun parseDateToEpoch(dateStr: String): Long {
+        return try {
+            val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US)
+            sdf.timeZone = TimeZone.getTimeZone("America/Sao_Paulo")
+            val date = sdf.parse(dateStr)
+            date?.time?.div(1000L) ?: (System.currentTimeMillis() / 1000L)
+        } catch (e: Exception) {
+            System.currentTimeMillis() / 1000L
+        }
+    }
+
     init {
         viewModelScope.launch {
             // Check if matches are empty, if so, populate default Copa matches
@@ -80,79 +94,426 @@ class FootballViewModel(
                 generateNotificationFlow()
             }
         }
+
+        // Automatic search & update from official APIs / internet on app launch
+        viewModelScope.launch {
+            syncRealMatchesFromInternet()
+        }
     }
 
     private suspend fun populateDefaultMatches() {
-        val currentDate = System.currentTimeMillis() / 1000L
-        val oneDay = 86400L
-
         val defaultList = listOf(
             MatchEntity(
-                id = 1,
-                teamHome = "Brasil", teamHomeCode = "BRA",
-                teamAway = "Argentina", teamAwayCode = "ARG",
-                dateTimeEpoch = currentDate + (2 * oneDay) + 7200, // 2 days from now + 2 hours
+                id = 11,
+                teamHome = "Inglaterra", teamHomeCode = "ENG",
+                teamAway = "Brasil", teamAwayCode = "BRA",
+                dateTimeEpoch = parseDateToEpoch("2024-03-23 16:00"),
+                scoreHome = 0, scoreAway = 1,
+                isCompleted = true,
+                stage = "Amistoso Oficial",
+                stadium = "Estádio de Wembley", city = "Londres", country = "Inglaterra",
+                broadcast = "TV Globo"
+            ),
+            MatchEntity(
+                id = 12,
+                teamHome = "Espanha", teamHomeCode = "ESP",
+                teamAway = "Brasil", teamAwayCode = "BRA",
+                dateTimeEpoch = parseDateToEpoch("2024-03-26 17:30"),
+                scoreHome = 3, scoreAway = 3,
+                isCompleted = true,
+                stage = "Amistoso Oficial",
+                stadium = "Santiago Bernabéu", city = "Madrid", country = "Espanha",
+                broadcast = "TV Globo"
+            ),
+            MatchEntity(
+                id = 13,
+                teamHome = "México", teamHomeCode = "MEX",
+                teamAway = "Brasil", teamAwayCode = "BRA",
+                dateTimeEpoch = parseDateToEpoch("2026-06-08 19:30"),
                 isCompleted = false,
-                stage = "Fase de Grupos",
+                stage = "Amistoso de Preparação",
+                stadium = "Kyle Field", city = "Texas", country = "EUA",
+                broadcast = "TV Globo • SporTV"
+            ),
+            MatchEntity(
+                id = 14,
+                teamHome = "Estados Unidos", teamHomeCode = "USA",
+                teamAway = "Brasil", teamAwayCode = "BRA",
+                dateTimeEpoch = parseDateToEpoch("2026-06-12 20:00"),
+                isCompleted = false,
+                stage = "Amistoso de Preparação",
+                stadium = "Camping World", city = "Orlando", country = "EUA",
+                broadcast = "TV Globo • SporTV"
+            ),
+            MatchEntity(
+                id = 15,
+                teamHome = "Brasil", teamHomeCode = "BRA",
+                teamAway = "Colômbia", teamAwayCode = "COL",
+                dateTimeEpoch = parseDateToEpoch("2026-06-17 20:00"),
+                isCompleted = false,
+                stage = "Copa do Mundo - Grupo",
+                stadium = "MetLife Stadium", city = "East Rutherford", country = "EUA",
+                broadcast = "TV Globo • SporTV"
+            ),
+            MatchEntity(
+                id = 16,
+                teamHome = "Bélgica", teamHomeCode = "BEL",
+                teamAway = "Brasil", teamAwayCode = "BRA",
+                dateTimeEpoch = parseDateToEpoch("2026-06-24 20:00"),
+                isCompleted = false,
+                stage = "Copa do Mundo - Grupo",
+                stadium = "SoFi Stadium", city = "Los Angeles", country = "EUA",
+                broadcast = "TV Globo • SporTV • CazéTV"
+            ),
+            MatchEntity(
+                id = 17,
+                teamHome = "México", teamHomeCode = "MEX",
+                teamAway = "França", teamAwayCode = "FRA",
+                dateTimeEpoch = parseDateToEpoch("2026-06-11 20:00"),
+                isCompleted = false,
+                stage = "Copa do Mundo - Abertura",
                 stadium = "Estádio Azteca", city = "Cidade do México", country = "México",
                 broadcast = "TV Globo"
             ),
             MatchEntity(
-                id = 2,
-                teamHome = "Portugal", teamHomeCode = "POR",
-                teamAway = "França", teamAwayCode = "FRA",
-                dateTimeEpoch = currentDate + (3 * oneDay) + 14400, // 3 days from now
+                id = 18,
+                teamHome = "Canadá", teamHomeCode = "CAN",
+                teamAway = "Holanda", teamAwayCode = "NED",
+                dateTimeEpoch = parseDateToEpoch("2026-06-12 17:00"),
                 isCompleted = false,
-                stage = "Fase de Grupos",
-                stadium = "MetLife Stadium", city = "Nova York", country = "EUA",
+                stage = "Copa do Mundo - Grupo",
+                stadium = "BMO Field", city = "Toronto", country = "Canadá",
+                broadcast = "SporTV • CazéTV"
+            ),
+            MatchEntity(
+                id = 19,
+                teamHome = "Argentina", teamHomeCode = "ARG",
+                teamAway = "Espanha", teamAwayCode = "ESP",
+                dateTimeEpoch = parseDateToEpoch("2026-06-13 17:00"),
+                isCompleted = false,
+                stage = "Copa do Mundo - Grupo",
+                stadium = "Gillette Stadium", city = "Boston", country = "EUA",
+                broadcast = "TV Globo • SporTV"
+            ),
+            // Current week (relative to May 23, 2026)
+            MatchEntity(
+                id = 20,
+                teamHome = "Itália", teamHomeCode = "ITA",
+                teamAway = "Inglaterra", teamAwayCode = "ENG",
+                dateTimeEpoch = parseDateToEpoch("2026-05-25 15:45"),
+                isCompleted = false,
+                stage = "Amistoso Oficial",
+                stadium = "Estádio Olímpico", city = "Roma", country = "Itália",
                 broadcast = "SporTV"
             ),
             MatchEntity(
-                id = 3,
+                id = 21,
                 teamHome = "Alemanha", teamHomeCode = "GER",
-                teamAway = "Espanha", teamAwayCode = "ESP",
-                dateTimeEpoch = currentDate + (5 * oneDay),
+                teamAway = "França", teamAwayCode = "FRA",
+                dateTimeEpoch = parseDateToEpoch("2026-05-28 16:00"),
                 isCompleted = false,
-                stage = "Fase de Grupos",
-                stadium = "SoFi Stadium", city = "Los Angeles", country = "EUA",
+                stage = "Amistoso Oficial",
+                stadium = "Allianz Arena", city = "Munique", country = "Alemanha",
                 broadcast = "CazéTV"
             ),
+            // Next week
             MatchEntity(
-                id = 4,
-                teamHome = "Uruguai", teamHomeCode = "URU",
-                teamAway = "Itália", teamAwayCode = "ITA",
-                dateTimeEpoch = currentDate - (1 * oneDay), // Yesterday (completed)
-                scoreHome = 2, scoreAway = 1,
-                isCompleted = true,
-                stage = "Fase de Grupos",
-                stadium = "Hard Rock Stadium", city = "Miami", country = "EUA",
+                id = 22,
+                teamHome = "Argentina", teamHomeCode = "ARG",
+                teamAway = "Uruguai", teamAwayCode = "URU",
+                dateTimeEpoch = parseDateToEpoch("2026-06-03 21:00"),
+                isCompleted = false,
+                stage = "Amistoso de Elite",
+                stadium = "Monumental de Núñez", city = "Buenos Aires", country = "Argentina",
+                broadcast = "TV Globo ・ SporTV"
+            ),
+            MatchEntity(
+                id = 23,
+                teamHome = "França", teamHomeCode = "FRA",
+                teamAway = "Portugal", teamAwayCode = "POR",
+                dateTimeEpoch = parseDateToEpoch("2026-06-04 15:45"),
+                isCompleted = false,
+                stage = "Amistoso Oficial",
+                stadium = "Stade de France", city = "Paris", country = "França",
                 broadcast = "SporTV"
             ),
             MatchEntity(
-                id = 5,
-                teamHome = "Inglaterra", teamHomeCode = "ENG",
+                id = 24,
+                teamHome = "Espanha", teamHomeCode = "ESP",
                 teamAway = "Holanda", teamAwayCode = "NED",
-                dateTimeEpoch = currentDate + (8 * oneDay),
+                dateTimeEpoch = parseDateToEpoch("2026-06-06 16:00"),
                 isCompleted = false,
-                stage = "Fase de Grupos",
-                stadium = "BC Place", city = "Vancouver", country = "Canadá",
-                broadcast = "TV Globo"
-            ),
-            MatchEntity(
-                id = 6,
-                teamHome = "Bélgica", teamHomeCode = "BEL",
-                teamAway = "Brasil", teamAwayCode = "BRA",
-                dateTimeEpoch = currentDate + (10 * oneDay),
-                isCompleted = false,
-                stage = "Fase de Grupos",
-                stadium = "AT&T Stadium", city = "Dallas", country = "EUA",
-                broadcast = "TV Globo"
+                stage = "Amistoso Oficial",
+                stadium = "Estádio de La Cartuja", city = "Sevilha", country = "Espanha",
+                broadcast = "CazéTV"
             )
         )
         repository.insertMatches(defaultList)
         // Set Brazil as default favorite if favorite teams empty
         if (repository.favoriteTeams.first().isEmpty()) {
             repository.addFavoriteTeam("BRA", "Brasil")
+        }
+    }
+
+    fun syncRealMatchesFromInternet() {
+        if (_isSyncing.value) return
+        _isSyncing.value = true
+        viewModelScope.launch {
+            try {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(getApplication(), "Atualizando dados oficiais...", Toast.LENGTH_SHORT).show()
+                }
+
+                val allFetched = mutableListOf<MatchEntity>()
+
+                // 1) Fetch ESPN Scoreboard
+                val espnUrl = "https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard"
+                val espnList = fetchFromEspnScoreboard(espnUrl)
+                if (espnList.isNotEmpty()) {
+                    allFetched.addAll(espnList)
+                }
+
+                // 2) Fetch Gemini dynamic sports search
+                val apiKey = BuildConfig.GEMINI_API_KEY
+                if (apiKey.isNotBlank()) {
+                    val geminiList = fetchMatchesUsingGeminiSearch(apiKey)
+                    if (geminiList.isNotEmpty()) {
+                        allFetched.addAll(geminiList)
+                    }
+                }
+
+                if (allFetched.isNotEmpty()) {
+                    repository.insertMatches(allFetched)
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(getApplication(), "Dados atualizados com sucesso!", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            } finally {
+                _isSyncing.value = false
+                generateNotificationFlow()
+            }
+        }
+    }
+
+    private suspend fun fetchFromEspnScoreboard(url: String): List<MatchEntity> = withContext(Dispatchers.IO) {
+        val client = OkHttpClient()
+        val request = Request.Builder().url(url).build()
+        try {
+            client.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) return@withContext emptyList()
+                val body = response.body?.string() ?: return@withContext emptyList()
+                val parsedList = mutableListOf<MatchEntity>()
+                val jsonElement = Json.parseToJsonElement(body)
+                val jsonObject = jsonElement.jsonObject
+                val events = jsonObject["events"]?.jsonArray ?: return@withContext emptyList()
+                
+                for (event in events) {
+                    try {
+                        val eventObj = event.jsonObject
+                        val idStr = eventObj["id"]?.jsonPrimitive?.content ?: "0"
+                        val id = idStr.toIntOrNull() ?: Random().nextInt(1000000)
+                        
+                        val competitions = eventObj["competitions"]?.jsonArray ?: continue
+                        if (competitions.isEmpty()) continue
+                        val compObj = competitions[0].jsonObject
+                        
+                        val dateStr = compObj["date"]?.jsonPrimitive?.content ?: ""
+                        var epoch = System.currentTimeMillis() / 1000L
+                        if (dateStr.isNotEmpty()) {
+                            try {
+                                val df = SimpleDateFormat("yyyy-MM-dd'T'HH:mm'Z'", Locale.US)
+                                df.timeZone = TimeZone.getTimeZone("UTC")
+                                val d = df.parse(dateStr)
+                                if (d != null) {
+                                    epoch = d.time / 1000L
+                                }
+                            } catch (e: Exception) {
+                                // Fallback
+                            }
+                        }
+                        
+                        val venueObj = compObj["venue"]?.jsonObject
+                        val stadiumName = venueObj?.get("fullName")?.jsonPrimitive?.content ?: "Estádio Especial"
+                        val addressObj = venueObj?.get("address")?.jsonObject
+                        val city = addressObj?.get("city")?.jsonPrimitive?.content ?: "Sede"
+                        val country = addressObj?.get("country")?.jsonPrimitive?.content ?: "País"
+                        
+                        val broadcastsArray = compObj["broadcasts"]?.jsonArray
+                        var broadcastChannel = "TV Globo • SporTV"
+                        if (broadcastsArray != null && broadcastsArray.isNotEmpty()) {
+                            val namesArray = broadcastsArray[0].jsonObject["names"]?.jsonArray
+                            if (namesArray != null && namesArray.isNotEmpty()) {
+                                broadcastChannel = namesArray.map { it.jsonPrimitive.content }.joinToString(" • ")
+                            }
+                        }
+                        
+                        val statusObj = compObj["status"]?.jsonObject
+                        val typeObj = statusObj?.get("type")?.jsonObject
+                        val isCompleted = typeObj?.get("completed")?.jsonPrimitive?.booleanOrNull ?: false
+                        
+                        val competitors = compObj["competitors"]?.jsonArray ?: continue
+                        if (competitors.size < 2) continue
+                        
+                        val comp1 = competitors[0].jsonObject
+                        val comp2 = competitors[1].jsonObject
+                        
+                        val isHome1 = comp1["homeAway"]?.jsonPrimitive?.content == "home"
+                        val homeComp = if (isHome1) comp1 else comp2
+                        val awayComp = if (isHome1) comp2 else comp1
+                        
+                        val homeTeamObj = homeComp["team"]?.jsonObject
+                        val awayTeamObj = awayComp["team"]?.jsonObject
+                        
+                        val teamHome = homeTeamObj?.get("displayName")?.jsonPrimitive?.content ?: "Home"
+                        val teamHomeCode = homeTeamObj?.get("abbreviation")?.jsonPrimitive?.content ?: "HOM"
+                        val teamAway = awayTeamObj?.get("displayName")?.jsonPrimitive?.content ?: "Away"
+                        val teamAwayCode = awayTeamObj?.get("abbreviation")?.jsonPrimitive?.content ?: "AWA"
+                        
+                        val scoreHome = homeComp["score"]?.jsonPrimitive?.content?.toIntOrNull()
+                        val scoreAway = awayComp["score"]?.jsonPrimitive?.content?.toIntOrNull()
+                        
+                        parsedList.add(
+                            MatchEntity(
+                                id = id,
+                                teamHome = teamHome,
+                                teamHomeCode = teamHomeCode,
+                                teamAway = teamAway,
+                                teamAwayCode = teamAwayCode,
+                                scoreHome = scoreHome,
+                                scoreAway = scoreAway,
+                                dateTimeEpoch = epoch,
+                                isCompleted = isCompleted,
+                                stage = "Fase de Grupos",
+                                stadium = stadiumName,
+                                city = city,
+                                country = country,
+                                broadcast = broadcastChannel
+                            )
+                        )
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                }
+                parsedList
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            emptyList()
+        }
+    }
+
+    private suspend fun fetchMatchesUsingGeminiSearch(apiKey: String): List<MatchEntity> = withContext(Dispatchers.IO) {
+        val url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=$apiKey"
+        val client = OkHttpClient.Builder()
+            .connectTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+            .readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+            .build()
+
+        val prompt = """
+            Você é um integrador de dados de futebol da Copa do Mundo 2026. Pesquise e retorne uma lista em formato JSON estrito de partidas reais, oficiais e atualizadas da Seleção Brasileira (Eliminatórias & amistosos de preparação de 2024-2026) e jogos de abertura da Copa do Mundo 2026.
+            Retorne APENAS um bloco em formato de array JSON contendo objetos estruturados exatamente como o modelo abaixo. Não adicione markdown explicativo nem tags extras estruturais além do JSON puro, sem ```json:
+            [
+              {
+                "id": 100,
+                "teamHome": "México",
+                "teamHomeCode": "MEX",
+                "teamAway": "Brasil",
+                "teamAwayCode": "BRA",
+                "scoreHome": null,
+                "scoreAway": null,
+                "dateTimeEpoch": 1780961400,
+                "isCompleted": false,
+                "stage": "Amistoso",
+                "stadium": "Kyle Field",
+                "city": "Texas",
+                "country": "EUA",
+                "broadcast": "TV Globo"
+              }
+            ]
+            REGRAS OBRIGATÓRIAS:
+            - Os dados devem ser REAIS.
+            - Os horários/epochs devem corresponder à realidade em segundos UTC.
+            - Não adicione textos adicionais, apenas o array JSON puro.
+        """.trimIndent()
+
+        val encodedPrompt = JsonPrimitive(prompt).toString()
+        val requestJson = """
+            {
+               "contents": [
+                   {
+                       "parts": [
+                           {"text": $encodedPrompt}
+                       ]
+                   }
+               ]
+            }
+        """.trimIndent()
+
+        val requestBody = requestJson.toRequestBody("application/json".toMediaType())
+        val request = Request.Builder()
+            .url(url)
+            .post(requestBody)
+            .build()
+
+        try {
+            client.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) return@withContext emptyList()
+                val bodyString = response.body?.string() ?: ""
+                
+                var rawJson = bodyString
+                if (rawJson.contains("text\":")) {
+                    val searchStr = "\"text\":"
+                    val idx = rawJson.indexOf(searchStr)
+                    if (idx != -1) {
+                        val sub = rawJson.substring(idx + searchStr.length).trim()
+                        if (sub.startsWith("\"")) {
+                            val endIdx = sub.indexOf("\"", 1)
+                            if (endIdx != -1) {
+                                rawJson = sub.substring(1, endIdx)
+                                    .replace("\\n", "\n")
+                                    .replace("\\\"", "\"")
+                                    .replace("\\t", "\t")
+                            }
+                        }
+                    }
+                }
+                
+                val cleanJson = if (rawJson.contains("```json")) {
+                    rawJson.substringAfter("```json").substringBefore("```").trim()
+                } else if (rawJson.contains("```")) {
+                    rawJson.substringAfter("```").substringBefore("```").trim()
+                } else {
+                    rawJson.trim()
+                }
+
+                val list = mutableListOf<MatchEntity>()
+                val root = Json.parseToJsonElement(cleanJson)
+                val array = root.jsonArray
+                for (item in array) {
+                    val obj = item.jsonObject
+                    val id = obj["id"]?.jsonPrimitive?.intOrNull ?: Random().nextInt(1000000)
+                    val teamHome = obj["teamHome"]?.jsonPrimitive?.content ?: ""
+                    val teamHomeCode = obj["teamHomeCode"]?.jsonPrimitive?.content ?: ""
+                    val teamAway = obj["teamAway"]?.jsonPrimitive?.content ?: ""
+                    val teamAwayCode = obj["teamAwayCode"]?.jsonPrimitive?.content ?: ""
+                    val scoreHome = obj["scoreHome"]?.jsonPrimitive?.intOrNull
+                    val scoreAway = obj["scoreAway"]?.jsonPrimitive?.intOrNull
+                    val dateTimeEpoch = obj["dateTimeEpoch"]?.jsonPrimitive?.longOrNull ?: (System.currentTimeMillis() / 1000L)
+                    val isCompleted = obj["isCompleted"]?.jsonPrimitive?.booleanOrNull ?: false
+                    val stage = obj["stage"]?.jsonPrimitive?.content ?: "Copa do Mundo"
+                    val stadium = obj["stadium"]?.jsonPrimitive?.content ?: ""
+                    val city = obj["city"]?.jsonPrimitive?.content ?: ""
+                    val country = obj["country"]?.jsonPrimitive?.content ?: ""
+                    val broadcast = obj["broadcast"]?.jsonPrimitive?.content ?: "TV Globo"
+                    list.add(MatchEntity(id, teamHome, teamHomeCode, teamAway, teamAwayCode, scoreHome, scoreAway, dateTimeEpoch, isCompleted, stage, stadium, city, country, broadcast))
+                }
+                list
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            emptyList()
         }
     }
 
