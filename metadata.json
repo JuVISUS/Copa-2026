@@ -1,0 +1,6 @@
+{
+  "name": "Copa 2026",
+  "description": "Assistente premium de futebol e alertas de jogos para a Copa do Mundo 2026 com chat inteligente de IA.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
